@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+dir=$(cd $(dirname "$1") && pwd)
+
+$dir/gcloud compute ssh --zone=`cat .zone` "$1"

@@ -1,0 +1,155 @@
+#cloud-config
+
+coreos:
+  etcd:
+      #generate a new token for each unique cluster from https://discovery.etcd.io/new
+      discovery: https://discovery.etcd.io/e7d005231c81d5e7942f9ad8e3041af6
+      addr: $private_ipv4:4001
+      peer-addr: $private_ipv4:7001
+  units:
+    - name: etcd.service
+      command: start
+    - name: fleet.service
+      command: start
+    - name: docker.service
+      command: start
+      content: |
+        [Unit]
+        Description=Docker Application Container Engine 
+        Documentation=http://docs.docker.io
+
+        [Service]
+        Environment="TMPDIR=/var/tmp/"
+        ExecStartPre=/bin/mount --make-rprivate /
+        LimitNOFILE=1048576
+        LimitNPROC=1048576
+        ExecStart=/usr/bin/docker -d --bip=172.17.42.1/16 -s=btrfs -r=false -H fd:// --dns 172.17.42.1 --dns 8.8.8.8
+        Restart=always
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: discoverer.service
+      command: start
+      content: |
+        [Unit]
+        Description=Service discoverer
+        Requires=docker.service
+
+        [Service]
+        TimeoutStartSec=0
+        EnvironmentFile=/etc/environment
+        ExecStartPre=/usr/bin/docker pull 10.240.180.178/ubuntu-haproxy-confd
+        ExecStart=/usr/bin/docker run -p 80:80 -p 8080:8080 -p 8181:8181 -p 3000:3000 -p 6379:6379 --name discoverer -v /etc/confd:/etc/confd 10.240.180.178/ubuntu-haproxy-confd -node=${COREOS_PRIVATE_IPV4}:4001 -interval=30
+        ExecStop=/usr/bin/docker stop -t 2 discoverer
+        ExecStop=/usr/bin/docker rm -f discoverer
+        Restart=always
+    - name: servicesinit.service
+      command: start
+      runtime: yes
+      content: |
+        [Unit]
+        Description=Init all henceforward services
+        Requires=etcd.service
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/bin/etcdctl mkdir /services
+
+        ExecStart=/usr/bin/etcdctl mkdir /services/server
+        ExecStart=/usr/bin/etcdctl mkdir /services/server/hosts
+        ExecStart=/usr/bin/etcdctl mk /services/server/scheme http
+        ExecStart=/usr/bin/etcdctl mk /services/server/host_port 1337
+
+        ExecStart=/usr/bin/etcdctl mkdir /services/frontend
+        ExecStart=/usr/bin/etcdctl mkdir /services/frontend/hosts
+        ExecStart=/usr/bin/etcdctl mk /services/frontend/scheme http
+        ExecStart=/usr/bin/etcdctl mk /services/frontend/host_port 3000
+write_files:
+  - path: /etc/confd/conf.d/configuration.toml
+    permissions: '0644'
+    content: |
+      [template]
+      src	= "haproxy.cfg"
+      dest 	= "/etc/haproxy/haproxy.cfg"
+      keys 	= [
+        "services",
+      ]
+      reload_cmd 	= "haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -d -D -sf $(cat /var/run/haproxy.pid)"
+  - path: /etc/confd/templates/haproxy.cfg
+    permissions: '0644'
+    content: |
+      global
+          daemon
+          maxconn 256
+          debug
+
+      defaults
+          timeout connect 5000ms
+          timeout client 50000ms
+          timeout server 50000ms
+          log global
+
+      frontend name_resolver_http
+        bind *:8080
+
+      {{range $service := .services}}
+        {{range $service_node := $service.Nodes}}
+          {{if eq (Base $service_node.Key) "scheme" }}
+            {{if eq $service_node.Value "http" }}
+        acl is_{{ Base $service.Key }} url_beg /{{ Base $service.Key }}
+        use_backend {{ Base $service.Key }}_servers if is_{{ Base $service.Key }}
+            {{ end }}
+          {{ end }}
+        {{ end }}
+
+        mode http
+      {{ end }}
+
+      frontend name_resolver_tcp
+        bind *:8181
+
+      {{range $service := .services}}
+        {{range $service_node := $service.Nodes}}
+          {{if eq (Base $service_node.Key) "scheme" }}
+            {{if eq $service_node.Value "tcp" }}
+        acl is_{{ Base $service.Key }} url_beg /{{ Base $service.Key }}
+        use_backend {{ Base $service.Key }}_servers if is_{{ Base $service.Key }}
+            {{ end }}
+          {{ end }}
+        {{ end }}
+
+        mode tcp
+      {{ end }}
+
+      {{range $service := .services}}
+
+      frontend {{ Base $service.Key }}_port
+        {{range $service_node := $service.Nodes}}
+          {{if eq (Base $service_node.Key) "scheme" }}
+        mode {{ $service_node.Value }}
+          {{ end }}
+
+          {{ if eq (Base $service_node.Key) "host_port" }}
+        bind *:{{ $service_node.Value }}
+          {{ end }}
+
+        {{ end }}
+
+        default_backend {{ Base $service.Key }}_servers
+
+
+      backend {{ Base $service.Key }}_servers
+
+        {{range $service_node := $service.Nodes}}
+          {{if eq (Base $service_node.Key) "scheme" }}
+        mode {{ $service_node.Value }}
+          {{ end }}
+
+          {{ if eq (Base $service_node.Key) "hosts" }}
+            {{ range $host_node := $service_node.Nodes }}
+        server server{{ Base $host_node.Key }} {{ $host_node.Value }}
+            {{ end}}
+          {{ end }}
+        {{ end }}
+
+      {{ end }}

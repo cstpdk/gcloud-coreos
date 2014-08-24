@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+if [ -z "`docker ps -a | grep gcloud-config`" ] ; then
+	echo "It seems you have not yet authenticated with google cloud"
+	echo "Please run once ./gcloud, and follow instructions to create credentials"
+	exit 1
+fi
+
+docker run -it --volumes-from gcloud-config \
+	-e ENTRY_NODE=`cat .entry-node` \
+	-e FLEET_VERIFY_UNITS=true \
+	-e FLEET_ETCD_REQUEST_TIMEOUT=5.0 \
+	-v $(pwd)/services:/services \
+	index.ouchmg.com/fleet $@

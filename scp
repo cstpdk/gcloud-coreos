@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+local_file=`basename $1`
+dir=$(cd $(dirname "$1") && pwd)
+
+$dir/gcloud compute copy-files --zone `cat .zone` /files/$local_file ${@:2}

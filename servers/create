@@ -1,0 +1,66 @@
+#!/bin/sh
+
+usage(){
+	cat << EOF
+Create machines on google compute engine
+
+Usage: $0 type name
+
+Where type is one of container or core of
+	container is container optimized google image
+	core is a coreos node
+EOF
+}
+
+dir=$(cd $(dirname "$0") && cd .. && pwd)
+
+create_core(){
+	"$dir"/gcloud compute instances create $@ \
+		--image=https://www.googleapis.com/compute/v1/projects/coreos-cloud/global/images/coreos-beta-367-1-0-v20140715 \
+		--zone=`cat $dir/.zone` --machine-type=g1-small \
+		--metadata-from-file user-data="/cloud-config.yaml" \
+		--scopes compute-rw storage-ro
+}
+
+create_container(){
+	"$dir"/gcloud compute instances create "$1" \
+		--image https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710 \
+		--zone `cat $dir/.zone` \
+		--machine-type g1-small
+
+	# --boot-disk-size 10 \
+	#--metadata-from-file google-container-manifest=/manifests/"$manifest".yaml"
+}
+
+create_registry(){
+	$dir/gcloud compute instances create registry \
+		--image https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710 \
+		--zone=`cat $dir/.zone` --machine-type=f1-micro \
+		--scopes storage-rw
+}
+
+create_db(){
+	# Create a disk
+	$dir/gcloud compute disks create --zone `cat $dir/.zone` --size 20 "$1"dbdisk
+
+	# And an instance
+	$dir/gcloud compute instances create "$1"db \
+		--image https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710 \
+		--zone=`cat $dir/.zone` --machine-type=f1-micro \
+		--disk name="$1"dbdisk \
+		--metadata-from-file startup-script="scripts/start_pg.sh"
+}
+
+create_jenkins(){
+	$dir/gcloud compute instances create jenkins \
+		--image https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710 \
+		--zone=`cat $dir/.zone` --machine-type=f1-micro \
+		--metadata-from-file startup-script="scripts/install_jenkins.sh"
+}
+
+
+case "$1" in
+	container|core|registry|db|jenkins) create_"$1" "${@:2}";;
+	*) usage ;;
+esac
+

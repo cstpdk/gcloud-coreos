@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+
+# Global vars
+declare -a args
+args=( $@ )
+
+# Determined positional
+cmd="${args[0]}"
+
+# All possible commands
+declare -a commands
+commands=(
+	add_loadbalancer
+	auth
+	create_instance
+	get_a_node_ip
+	get_a_node_name
+	newest_image
+)
+
+main(){
+	check_args
+	set_defaults
+	# If second argument is a cry for help
+	case "${args[1]}" in "-h"|"--help") "$cmd""_usage" ; exit 0 ;; esac
+	$cmd
+}
+
+usage(){
+	cat << EOF
+Usage: $0 command
+Where command is one of:$(printf " %s" "${commands[@]}")
+EOF
+}
+
+check_args(){
+	if [ -z $cmd ] ; then
+		usage
+	fi
+
+	# Hello impertive programming my old friend
+	found=false
+	for element in "${commands[@]}" ; do
+		if [ $element == $cmd ] ; then
+			found=true
+		fi
+	done
+
+	# If we didn't find the element, abort
+	if [ "$found" = false ] ; then
+		usage
+		exit 1
+	fi
+}
+
+set_defaults(){
+	# All of the following can be overridden with environment variables
+
+	# we assume a good old globally available executable
+	GCLOUD_EXE=${GCLOUD_EXE:-"gcloud"}
+
+	# No place like europe-west1-a
+	GCLOUD_ZONE=${GCLOUD_ZONE:-"europe-west1-b"}
+	GCLOUD_REGION=${GCLOUD_REGION:-"europe-west1"}
+
+	GCLOUD_PROJECT=${GCLOUD_PROJECT:-"sodium-sublime-615"}
+
+	GCLOUD_CONFIG_FILE=${GCLOUD_CONFIG_FILE:-"./cloud-config.yaml"}
+
+}
+
+add_loadbalancer_usage(){
+	cat << EOF
+Add load balancer to cluster
+Usage: $0 $cmd instance
+Where instance is the name of the instance to add to the loadbalancer
+EOF
+}
+add_loadbalancer(){
+	instance="${args[1]}"
+	if [ -z "$instance" ] ; then
+		add_loadbalancer_usage
+		exit 1;
+	fi
+	$GCLOUD_EXE compute http-health-checks create basic-check
+	$GCLOUD_EXE compute target-pools create --health-check basic-check --region $GCLOUD_REGION lb
+	$GCLOUD_EXE compute target-pools add-instances production \
+		--instance $instance --zone $GCLOUD_ZONE --region $GCLOUD_REGION
+}
+
+auth_usage(){
+	cat << EOF
+Performs auth and saves credentials in ~/.config and ~/.ssh
+Usage: $0 $cmd
+EOF
+}
+auth(){
+	$GCLOUD_EXE config set project $GCLOUD_PROJECT
+	$GCLOUD_EXE auth login
+	$GCLOUD_EXE compute ssh --zone $GCLOUD_ZONE --command true core@`get_a_node_name`
+}
+
+create_instance_usage(){
+	cat << EOF
+Create one or more gcloud machines
+Usage: $0 $cmd name1[ name2.. nameN]
+EOF
+}
+create_instance(){
+	instance_names=${args[@]:1}
+	if [ -z "$instance_names" ] ; then
+		create_instance_usage
+	fi
+	$GCLOUD_EXE compute instances create $instance_names \
+		--image=https://www.googleapis.com/compute/v1/projects/`newest_image` \
+		--zone=$GCLOUD_ZONE --machine-type=g1-small \
+		--metadata-from-file=user-data=$GCLOUD_CONFIG_FILE \
+		--scopes compute-rw storage-ro
+}
+
+get_a_node_ip(){
+	$GCLOUD_EXE compute instances list | grep -E "core[0-9]+" | awk '{print $6}' | head -1
+}
+
+get_a_node_name(){
+	$GCLOUD_EXE compute instances list | grep -E "core[0-9]+" | awk '{print $1}' | head -1
+}
+
+newest_image(){
+	$GCLOUD_EXE compute images list --project=coreos-cloud | grep coreos | grep -v "DEPRECATED" | grep beta | awk '{print $1}'
+}
+
+# Point of entry
+main
