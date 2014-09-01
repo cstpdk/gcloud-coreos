@@ -2,7 +2,7 @@
 
 export GCLOUD_PROJECT=`cat .project`
 export GCLOUD_ZONE=`cat .zone`
-dir=$(cd $(dirname "$1") && pwd)
+dir=$(cd $(dirname "$0") && pwd)
 
 config_container="$GCLOUD_PROJECT""-gcloud-config"
 
@@ -11,19 +11,19 @@ if [[ "$1" = "reauth" ]] ; then
 fi
 
 # If we do not have a config container, then we need to auth
-if [ -z "`docker ps -a | grep $config_container`" ] ; then
+if [[ ! `docker ps -a | grep $config_container` ]] ; then
 
 	echo -e "\e[1;33m"
 
 	echo "No config parameters found. Doing now"
-	docker run --rm -t -i --name $config_container -v /.ssh -v /.config \
-	-v $(pwd)/scripts:/scripts -v $(pwd):/files \
+	docker run -t -i --name $config_container -v /.ssh -v /.config \
+	-v $dir/scripts:/scripts -v $dir:/files \
 	google/cloud-sdk /scripts/gcloud-helper auth
 
 	echo -e "\e[0m"
 else
 	docker run --rm -it --volumes-from $config_container \
-		-v $(pwd)/cloud-config.yaml:/cloud-config.yaml \
-		-v $(pwd)/scripts:/scripts -v $(pwd):/files \
+		-v $dir/cloud-config.yaml:/cloud-config.yaml \
+		-v $dir/scripts:/scripts -v $dir:/files \
 		google/cloud-sdk gcloud $@
 fi
