@@ -96,6 +96,7 @@ EOF
 }
 auth(){
 	$GCLOUD_EXE config set project $GCLOUD_PROJECT
+        $GCLOUD_EXE config set zone $GCLOUD_ZONE
 	$GCLOUD_EXE auth login
 	$GCLOUD_EXE compute ssh --zone $GCLOUD_ZONE --command true core@`get_a_node_name`
 }

@@ -1,14 +1,20 @@
 #!/usr/bin/env sh
 
-if [ -z "`docker ps -a | grep gcloud-config`" ] ; then
+dir=$(cd $(dirname "$0") && pwd)
+export GCLOUD_PROJECT=`cat $dir/../.project`
+
+config_container=$GCLOUD_PROJECT-gcloud-config
+if [ -z "`docker ps -a | grep $config_container`" ] ; then
 	echo "It seems you have not yet authenticated with google cloud"
 	echo "Please run once ./gcloud, and follow instructions to create credentials"
 	exit 1
 fi
 
-docker run -it --volumes-from gcloud-config \
-	-e ENTRY_NODE=`cat .entry-node` \
+docker run -it --volumes-from $config_container \
+	-e FLEETCTL_TUNNEL=`cat $dir/.entry-node` \
 	-e FLEET_VERIFY_UNITS=true \
 	-e FLEET_ETCD_REQUEST_TIMEOUT=5.0 \
-	-v $(pwd)/services:/services \
-	index.ouchmg.com/fleet $@
+	-v $dir/../services:/services \
+        -v $dir/scripts/get-ssh:/get-ssh \
+        --entrypoint bash \
+	adamalex/fleet -c "source /get-ssh && /root/fleet/bin/fleetctl $@"

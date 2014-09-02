@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-export GCLOUD_PROJECT=`cat .project`
-export GCLOUD_ZONE=`cat .zone`
 dir=$(cd $(dirname "$0") && pwd)
+
+export GCLOUD_PROJECT=`cat $dir/../.project`
+export GCLOUD_ZONE=`cat $dir/../.zone`
 
 config_container="$GCLOUD_PROJECT""-gcloud-config"
 
@@ -17,6 +18,7 @@ if [[ ! `docker ps -a | grep $config_container` ]] ; then
 
 	echo "No config parameters found. Doing now"
 	docker run -t -i --name $config_container -v /.ssh -v /.config \
+        -e GCLOUD_PROJECT=$GCLOUD_PROJECT -e GCLOUD_ZONE=$GCLOUD_ZONE \
 	-v $dir/scripts:/scripts -v $dir:/files \
 	google/cloud-sdk /scripts/gcloud-helper auth
 

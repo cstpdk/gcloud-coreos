@@ -17,15 +17,15 @@ dir=$(cd $(dirname "$0") && cd .. && pwd)
 create_core(){
 	"$dir"/gcloud compute instances create $@ \
 		--image=https://www.googleapis.com/compute/v1/projects/coreos-cloud/global/images/coreos-beta-367-1-0-v20140715 \
-		--zone=`cat $dir/.zone` --machine-type=g1-small \
-		--metadata-from-file user-data="/cloud-config.yaml" \
+		--zone=`cat $dir/../.zone` --machine-type=g1-small \
+		--metadata-from-file user-data="cloud//cloud-config.yaml" \
 		--scopes compute-rw storage-ro
 }
 
 create_container(){
 	"$dir"/gcloud compute instances create "$1" \
 		--image https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710 \
-		--zone `cat $dir/.zone` \
+		--zone `cat $dir/../.zone` \
 		--machine-type g1-small
 
 	# --boot-disk-size 10 \
@@ -35,27 +35,28 @@ create_container(){
 create_registry(){
 	$dir/gcloud compute instances create registry \
 		--image https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710 \
-		--zone=`cat $dir/.zone` --machine-type=f1-micro \
-		--scopes storage-rw
+		--zone=`cat $dir/../.zone` --machine-type=f1-micro \
+		--scopes storage-rw \
+		--metadata-from-file startup-script="/scripts/start_registry.sh"
 }
 
 create_db(){
 	# Create a disk
-	$dir/gcloud compute disks create --zone `cat $dir/.zone` --size 20 "$1"dbdisk
+	$dir/gcloud compute disks create --zone `cat $dir/../.zone` --size 20 "$1"dbdisk
 
 	# And an instance
 	$dir/gcloud compute instances create "$1"db \
 		--image https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710 \
-		--zone=`cat $dir/.zone` --machine-type=f1-micro \
+		--zone=`cat $dir/../.zone` --machine-type=f1-micro \
 		--disk name="$1"dbdisk \
-		--metadata-from-file startup-script="scripts/start_pg.sh"
+		--metadata-from-file startup-script="$dir/scripts/start_pg.sh"
 }
 
 create_jenkins(){
 	$dir/gcloud compute instances create jenkins \
 		--image https://www.googleapis.com/compute/v1/projects/google-containers/global/images/container-vm-v20140710 \
-		--zone=`cat $dir/.zone` --machine-type=f1-micro \
-		--metadata-from-file startup-script="scripts/install_jenkins.sh"
+		--zone=`cat $dir/../.zone` --machine-type=f1-micro \
+		--metadata-from-file startup-script="$dir/scripts/install_jenkins.sh"
 }
 
 

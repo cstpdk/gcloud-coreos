@@ -3,7 +3,7 @@
 coreos:
   etcd:
       #generate a new token for each unique cluster from https://discovery.etcd.io/new
-      discovery: https://discovery.etcd.io/e7d005231c81d5e7942f9ad8e3041af6
+      discovery: https://discovery.etcd.io/cfac177a925aa09636ed595ff408899d
       addr: $private_ipv4:4001
       peer-addr: $private_ipv4:7001
   units:
@@ -38,8 +38,8 @@ coreos:
         [Service]
         TimeoutStartSec=0
         EnvironmentFile=/etc/environment
-        ExecStartPre=/usr/bin/docker pull 10.240.180.178/ubuntu-haproxy-confd
-        ExecStart=/usr/bin/docker run -p 80:80 -p 8080:8080 -p 8181:8181 -p 3000:3000 -p 6379:6379 --name discoverer -v /etc/confd:/etc/confd 10.240.180.178/ubuntu-haproxy-confd -node=${COREOS_PRIVATE_IPV4}:4001 -interval=30
+        ExecStartPre=/usr/bin/docker build -t discoverer /etc/discoverer
+        ExecStart=/usr/bin/docker run -p 80:80 -p 8080:8080 -p 8181:8181 -p 3000:3000 -p 6379:6379 --name discoverer -v /etc/confd:/etc/confd discoverer -node=${COREOS_PRIVATE_IPV4}:4001 -interval=30
         ExecStop=/usr/bin/docker stop -t 2 discoverer
         ExecStop=/usr/bin/docker rm -f discoverer
         Restart=always
@@ -65,13 +65,31 @@ coreos:
         ExecStart=/usr/bin/etcdctl mk /services/frontend/scheme http
         ExecStart=/usr/bin/etcdctl mk /services/frontend/host_port 3000
 write_files:
+  - path: /etc/discoverer/Dockerfile
+    permissions: '0644'
+    content: |
+      FROM dockerfile/haproxy
+
+      ADD https://github.com/kelseyhightower/confd/releases/download/v0.5.0/confd-0.5.0-linux-amd64 /usr/local/bin/confd
+      RUN chmod u+x /usr/local/bin/confd
+
+      ADD run.sh /run.sh
+
+      ENTRYPOINT ["/run.sh"]
+  - path: /etc/discoverer/run.sh
+    permissions: '0744'
+    content: |
+      #!/bin/bash
+
+      haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -D
+      confd $@
   - path: /etc/confd/conf.d/configuration.toml
     permissions: '0644'
     content: |
       [template]
       src	= "haproxy.cfg"
-      dest 	= "/etc/haproxy/haproxy.cfg"
-      keys 	= [
+      dest	= "/etc/haproxy/haproxy.cfg"
+      keys	= [
         "services",
       ]
       reload_cmd 	= "haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -d -D -sf $(cat /var/run/haproxy.pid)"
