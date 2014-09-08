@@ -1,3 +1,6 @@
 #!/bin/sh
 
-./gcloud compute instances delete --zone `cat .zone` "$@"
+dir=$(cd $(dirname "$0") && cd .. && pwd)
+source $dir/variables.sh
+
+$dir/gcloud compute instances delete --zone $GCLOUD_ZONE "$@"

@@ -3,7 +3,7 @@
 coreos:
   etcd:
       #generate a new token for each unique cluster from https://discovery.etcd.io/new
-      discovery: https://discovery.etcd.io/e7d005231c81d5e7942f9ad8e3041af6
+      discovery: https://discovery.etcd.io/25de254a8a145e0d5409fd39da4fd957
       addr: $private_ipv4:4001
       peer-addr: $private_ipv4:7001
   units:
@@ -38,33 +38,90 @@ coreos:
         [Service]
         TimeoutStartSec=0
         EnvironmentFile=/etc/environment
-        ExecStartPre=/usr/bin/docker pull 10.240.180.178/ubuntu-haproxy-confd
-        ExecStart=/usr/bin/docker run -p 80:80 -p 8080:8080 -p 8181:8181 -p 3000:3000 -p 6379:6379 --name discoverer -v /etc/confd:/etc/confd 10.240.180.178/ubuntu-haproxy-confd -node=${COREOS_PRIVATE_IPV4}:4001 -interval=30
+        ExecStartPre=/usr/bin/docker build -t discoverer /etc/containers/discoverer
+        ExecStart=/usr/bin/docker run -p 80:80 -p 81:81 --name discoverer \
+          -v /etc/confd:/etc/confd \
+          discoverer -node=${COREOS_PRIVATE_IPV4}:4001 -interval=30
         ExecStop=/usr/bin/docker stop -t 2 discoverer
-        ExecStop=/usr/bin/docker rm -f discoverer
+        ExecStop=/usr/bin/docker rm -v -f discoverer
         Restart=always
     - name: servicesinit.service
       command: start
       runtime: yes
       content: |
         [Unit]
-        Description=Init all henceforward services
+        Description=Init some services
         Requires=etcd.service
 
         [Service]
         Type=oneshot
         ExecStart=/usr/bin/etcdctl mkdir /services
+    - name: dnsmasq.service
+      command: start
+      content: |
+        [Unit]
+        Description=Local dns
+        Requires=docker.service
 
-        ExecStart=/usr/bin/etcdctl mkdir /services/server
-        ExecStart=/usr/bin/etcdctl mkdir /services/server/hosts
-        ExecStart=/usr/bin/etcdctl mk /services/server/scheme http
-        ExecStart=/usr/bin/etcdctl mk /services/server/host_port 1337
-
-        ExecStart=/usr/bin/etcdctl mkdir /services/frontend
-        ExecStart=/usr/bin/etcdctl mkdir /services/frontend/hosts
-        ExecStart=/usr/bin/etcdctl mk /services/frontend/scheme http
-        ExecStart=/usr/bin/etcdctl mk /services/frontend/host_port 3000
+        [Service]
+        TimeoutStartSec=0
+        ExecStartPre=/usr/bin/docker build -t dnsmasq /etc/containers/dnsmasq
+        ExecStart=/usr/bin/docker run -p 53:53/udp --name dnsmasq dnsmasq
+        ExecStop=/usr/bin/docker stop -t 2 dnsmasq
+        ExecStop=/usr/bin/docker rm -v -f dnsmasq
+        Restart=always
 write_files:
+  - path: /etc/resolv.conf
+    permissions: '0644'
+    content: |
+      nameserver 172.17.42.1
+      nameserver 8.8.8.8
+  - path: /etc/containers/dnsmasq/dnsmasq.conf
+    permissions: '0644'
+    content: |
+      bogus-priv
+      domain-needed
+      no-poll
+      no-resolv
+      server=8.8.8.8
+      server=8.8.4.4
+      user=daemon
+      conf-dir=/etc/dnsmasq.d
+  - path: /etc/containers/dnsmasq/extra.conf
+    permissions: '0644'
+    content: |
+      address=/local/172.17.42.1
+  - path: /etc/containers/dnsmasq/Dockerfile
+    permissions: '0644'
+    content: |
+      FROM debian:latest
+
+      RUN apt-get update -y
+      RUN apt-get install -y dnsmasq
+
+      ADD dnsmasq.conf /etc/dnsmasq.conf
+      ADD extra.conf /etc/dnsmasq.d/extra.conf
+
+      EXPOSE 53
+
+      CMD ["dnsmasq","-d"]
+  - path: /etc/containers/discoverer/run.sh
+    permissions: '0744'
+    content: |
+      #!/bin/bash
+      haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -D
+      /confd $@
+  - path: /etc/containers/discoverer/Dockerfile
+    permissions: '0644'
+    content: |
+      FROM dockerfile/haproxy
+
+      ADD https://github.com/kelseyhightower/confd/releases/download/v0.5.0/confd-0.5.0-linux-amd64 /confd
+      RUN chmod u+x /confd
+
+      ADD run.sh /run.sh
+
+      ENTRYPOINT ["/run.sh"]
   - path: /etc/confd/conf.d/configuration.toml
     permissions: '0644'
     content: |
@@ -90,13 +147,14 @@ write_files:
           log global
 
       frontend name_resolver_http
-        bind *:8080
+          bind *:80
 
       {{range $service := .services}}
         {{range $service_node := $service.Nodes}}
           {{if eq (Base $service_node.Key) "scheme" }}
             {{if eq $service_node.Value "http" }}
         acl is_{{ Base $service.Key }} url_beg /{{ Base $service.Key }}
+        acl is_{{ Base $service.Key }} hdr_sub(host) {{ Base $service.Key }}
         use_backend {{ Base $service.Key }}_servers if is_{{ Base $service.Key }}
             {{ end }}
           {{ end }}
@@ -106,7 +164,7 @@ write_files:
       {{ end }}
 
       frontend name_resolver_tcp
-        bind *:8181
+        bind *:81
 
       {{range $service := .services}}
         {{range $service_node := $service.Nodes}}
@@ -140,6 +198,7 @@ write_files:
 
       backend {{ Base $service.Key }}_servers
 
+        reqrep ^([^\ ]*\ /){{ Base $service.key }}[/]?(.*)     \1\2
         {{range $service_node := $service.Nodes}}
           {{if eq (Base $service_node.Key) "scheme" }}
         mode {{ $service_node.Value }}

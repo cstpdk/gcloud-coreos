@@ -100,12 +100,14 @@ auth(){
 	$GCLOUD_EXE compute ssh --zone $GCLOUD_ZONE --command true core@`get_a_node_name`
 }
 
+
 create_instance_usage(){
 	cat << EOF
 Create one or more gcloud machines
 Usage: $0 $cmd name1[ name2.. nameN]
 EOF
 }
+
 create_instance(){
 	instance_names=${args[@]:1}
 	if [ -z "$instance_names" ] ; then

@@ -1,14 +1,29 @@
 #!/usr/bin/env sh
 
-if [ -z "`docker ps -a | grep gcloud-config`" ] ; then
+dir=$(cd $(dirname "$0") && pwd)
+source "$dir/variables.sh"
+
+config_container="$GCLOUD_PROJECT""-gcloud-config"
+fleet_image="$GCLOUD_PROJECT""-fleet"
+
+if [ -z "`docker ps -a | grep $config_container`" ] ; then
 	echo "It seems you have not yet authenticated with google cloud"
-	echo "Please run once ./gcloud, and follow instructions to create credentials"
+	echo "Please run ./gcloud reauth, and follow instructions to create credentials"
 	exit 1
 fi
 
-docker run -it --volumes-from gcloud-config \
-	-e ENTRY_NODE=`cat .entry-node` \
+if [ -z "`docker images | grep $fleet_image`" ] ; then
+	echo "You have not build the fleet image for this project yet"
+	echo "Please do so (see the Makefile in this directory"
+	exit 1
+fi
+
+docker run -it --volumes-from $config_container \
+	-e FLEETCTL_TUNNEL=`cat .entry-node` \
 	-e FLEET_VERIFY_UNITS=true \
-	-e FLEET_ETCD_REQUEST_TIMEOUT=5.0 \
+	-e FLEETCTL="/root/fleet/bin/fleetctl" \
+	-e ENTRY_NODE=`cat .entry-node` \
 	-v $(pwd)/services:/services \
-	index.ouchmg.com/fleet $@
+	-v $dir/scripts/ssh_and_do:/ssh_and_do \
+	--entrypoint /ssh_and_do \
+	$fleet_image $@

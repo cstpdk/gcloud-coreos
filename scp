@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-local_file=`basename $1`
-dir=$(cd $(dirname "$1") && pwd)
+local_file="$1"
+dir=$(cd $(dirname "$0") && pwd)
+config_container="$GCLOUD_PROJECT""-gcloud-config"
 
-$dir/gcloud compute copy-files --zone `cat .zone` /files/$local_file ${@:2}
+source $dir/variables.sh
+
+$dir/gcloud compute copy-files --zone $GCLOUD_ZONE /files/$local_file ${@:2}
