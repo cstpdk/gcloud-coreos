@@ -23,7 +23,7 @@ create_core(){
 		--image=$coreos_image \
 		--zone=$GCLOUD_ZONE --machine-type=g1-small \
 		--metadata-from-file user-data="/cloud-config.yaml" \
-		--scopes compute-rw storage-rw
+		--scopes compute-rw storage-ro
 }
 
 create_container(){
@@ -39,6 +39,7 @@ create_registry(){
 		--zone=$GCLOUD_ZONE --machine-type=f1-micro \
 		--metadata-from-file google-container-manifest=/manifests/registry.yaml \
 		--scopes storage-rw
+		--metadata-from-file startup-script="/scripts/start_registry.sh"
 }
 
 create_db(){
@@ -50,7 +51,7 @@ create_db(){
 		--image $container_image \
 		--zone=$GCLOUD_ZONE --machine-type=f1-micro \
 		--disk name="$1"dbdisk \
-		--metadata-from-file startup-script="scripts/start_pg.sh"
+		--metadata-from-file startup-script="$dir/scripts/start_pg.sh"
 }
 
 create_jenkins(){
