@@ -154,7 +154,7 @@ write_files:
           {{if eq (Base $service_node.Key) "scheme" }}
             {{if eq $service_node.Value "http" }}
         acl is_{{ Base $service.Key }} url_beg /{{ Base $service.Key }}
-        acl is_{{ Base $service.Key }} hdr_sub(host) {{ Base $service.Key }}
+        acl is_{{ Base $service.Key }} hdr_beg(host) {{ Base $service.Key }}
         use_backend {{ Base $service.Key }}_servers if is_{{ Base $service.Key }}
             {{ end }}
           {{ end }}
@@ -198,7 +198,7 @@ write_files:
 
       backend {{ Base $service.Key }}_servers
 
-        reqrep ^([^\ ]*\ /){{ Base $service.key }}[/]?(.*)     \1\2
+        reqrep ^([^\ ]*\ /){{ Base $service.Key }}[/]?(.*)     \1\2
         {{range $service_node := $service.Nodes}}
           {{if eq (Base $service_node.Key) "scheme" }}
         mode {{ $service_node.Value }}
