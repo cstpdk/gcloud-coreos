@@ -2,7 +2,7 @@
 
 wget -q -O - http://pkg.jenkins-ci.org/debian/jenkins-ci.org.key | sudo apt-key add -
 
-deb http://pkg.jenkins-ci.org/debian binary/
+echo "deb http://pkg.jenkins-ci.org/debian binary/" > /etc/apt/sources.list
 
 sudo apt-get update
 sudo apt-get install jenkins
