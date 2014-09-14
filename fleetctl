@@ -23,7 +23,9 @@ docker run -it --volumes-from $config_container \
 	-e FLEET_VERIFY_UNITS=true \
 	-e FLEETCTL="/root/fleet/bin/fleetctl" \
 	-e ENTRY_NODE=`cat .entry-node` \
+	-w / \
+	--entrypoint /ssh_and_do \
 	-v $(pwd)/services:/services \
 	-v $dir/scripts/ssh_and_do:/ssh_and_do \
-	--entrypoint /ssh_and_do \
 	$fleet_image $@
+
