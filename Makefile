@@ -25,3 +25,6 @@ update-gcloud-project:
 
 cloud-config.yaml: update-discovery-token update-gcloud-project
 	rm cloud-config.yaml.bak # Yeah. Your backup doesn't interest me beyond mac compatibility
+
+.entry-node:
+	./servers/list | grep -E "core[0-9]+" | awk '{print $$5}' | head -1 > $@
