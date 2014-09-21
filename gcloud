@@ -32,7 +32,7 @@ if [[ ! `docker ps -a | grep $config_container` ]] ; then
 else
 	docker run --rm -it --volumes-from "$config_container" \
 		-v $dir/cloud-config.yaml:/cloud-config.yaml \
-		-v $dir/scripts:/scripts -v $dir:/files \
+		-v $dir/scripts:/scripts -v $(pwd):/files \
 		-v $dir/servers/manifests:/manifests \
 		-e GCLOUD_PROJECT=$GCLOUD_PROJECT \
 		-e GCLOUD_ZONE=$GCLOUD_ZONE \
