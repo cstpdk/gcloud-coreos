@@ -38,10 +38,14 @@ coreos:
         [Service]
         TimeoutStartSec=0
         EnvironmentFile=/etc/environment
-        ExecStartPre=/usr/bin/docker build -t discoverer /etc/containers/discoverer
-        ExecStart=/usr/bin/docker run -p 80:80 -p 81:81 --name discoverer \
-          -v /etc/confd:/etc/confd \
-          discoverer -node=${COREOS_PRIVATE_IPV4}:4001 -interval=30
+        ExecStartPre=/usr/bin/docker pull cstpdk/haproxy-confd
+        ExecStart=/usr/bin/docker run \
+          -p 80:80 -p 81:81 \
+          -p 5432:5432 -p 6379:6379 \
+          -p 5433:5433 -p 6380:6380 \
+          -p 5434:5434 -p 6381:6381 \
+          --name discoverer \
+          cstpdk/haproxy-confd -node=${COREOS_PRIVATE_IPV4}:4001 -interval=30
         ExecStop=/usr/bin/docker stop -t 2 discoverer
         ExecStop=/usr/bin/docker rm -v -f discoverer
         Restart=always
@@ -65,8 +69,8 @@ coreos:
 
         [Service]
         TimeoutStartSec=0
-        ExecStartPre=/usr/bin/docker build -t dnsmasq /etc/containers/dnsmasq
-        ExecStart=/usr/bin/docker run -p 53:53/udp --name dnsmasq dnsmasq
+        ExecStartPre=/usr/bin/docker pull cstpdk/dnsmasq
+        ExecStart=/usr/bin/docker run -p 53:53/udp --name dnsmasq cstpdk/dnsmasq
         ExecStop=/usr/bin/docker stop -t 2 dnsmasq
         ExecStop=/usr/bin/docker rm -v -f dnsmasq
         Restart=always
@@ -76,139 +80,3 @@ write_files:
     content: |
       nameserver 172.17.42.1
       nameserver 8.8.8.8
-  - path: /etc/containers/dnsmasq/dnsmasq.conf
-    permissions: '0644'
-    content: |
-      bogus-priv
-      domain-needed
-      no-poll
-      no-resolv
-      server=8.8.8.8
-      server=8.8.4.4
-      user=daemon
-      conf-dir=/etc/dnsmasq.d
-  - path: /etc/containers/dnsmasq/extra.conf
-    permissions: '0644'
-    content: |
-      address=/local/172.17.42.1
-  - path: /etc/containers/dnsmasq/Dockerfile
-    permissions: '0644'
-    content: |
-      FROM debian:latest
-
-      RUN apt-get update -y
-      RUN apt-get install -y dnsmasq
-
-      ADD dnsmasq.conf /etc/dnsmasq.conf
-      ADD extra.conf /etc/dnsmasq.d/extra.conf
-
-      EXPOSE 53
-
-      CMD ["dnsmasq","-d"]
-  - path: /etc/containers/discoverer/run.sh
-    permissions: '0744'
-    content: |
-      #!/bin/bash
-      haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -D
-      /confd $@
-  - path: /etc/containers/discoverer/Dockerfile
-    permissions: '0644'
-    content: |
-      FROM dockerfile/haproxy
-
-      ADD https://github.com/kelseyhightower/confd/releases/download/v0.5.0/confd-0.5.0-linux-amd64 /confd
-      RUN chmod u+x /confd
-
-      ADD run.sh /run.sh
-
-      ENTRYPOINT ["/run.sh"]
-  - path: /etc/confd/conf.d/configuration.toml
-    permissions: '0644'
-    content: |
-      [template]
-      src	= "haproxy.cfg"
-      dest	= "/etc/haproxy/haproxy.cfg"
-      keys	= [
-        "services",
-      ]
-      reload_cmd 	= "haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -d -D -sf $(cat /var/run/haproxy.pid)"
-  - path: /etc/confd/templates/haproxy.cfg
-    permissions: '0644'
-    content: |
-      global
-          daemon
-          maxconn 256
-          debug
-
-      defaults
-          timeout connect 5000ms
-          timeout client 50000ms
-          timeout server 50000ms
-          log global
-
-      frontend name_resolver_http
-          bind *:80
-
-      {{range $service := .services}}
-        {{range $service_node := $service.Nodes}}
-          {{if eq (Base $service_node.Key) "scheme" }}
-            {{if eq $service_node.Value "http" }}
-        acl is_{{ Base $service.Key }} url_beg /{{ Base $service.Key }}
-        acl is_{{ Base $service.Key }} hdr_beg(host) {{ Base $service.Key }}
-        use_backend {{ Base $service.Key }}_servers if is_{{ Base $service.Key }}
-            {{ end }}
-          {{ end }}
-        {{ end }}
-
-        mode http
-      {{ end }}
-
-      frontend name_resolver_tcp
-        bind *:81
-
-      {{range $service := .services}}
-        {{range $service_node := $service.Nodes}}
-          {{if eq (Base $service_node.Key) "scheme" }}
-            {{if eq $service_node.Value "tcp" }}
-        acl is_{{ Base $service.Key }} url_beg /{{ Base $service.Key }}
-        use_backend {{ Base $service.Key }}_servers if is_{{ Base $service.Key }}
-            {{ end }}
-          {{ end }}
-        {{ end }}
-
-        mode tcp
-      {{ end }}
-
-      {{range $service := .services}}
-
-      frontend {{ Base $service.Key }}_port
-        {{range $service_node := $service.Nodes}}
-          {{if eq (Base $service_node.Key) "scheme" }}
-        mode {{ $service_node.Value }}
-          {{ end }}
-
-          {{ if eq (Base $service_node.Key) "host_port" }}
-        bind *:{{ $service_node.Value }}
-          {{ end }}
-
-        {{ end }}
-
-        default_backend {{ Base $service.Key }}_servers
-
-
-      backend {{ Base $service.Key }}_servers
-
-        reqrep ^([^\ ]*\ /){{ Base $service.Key }}[/]?(.*)     \1\2
-        {{range $service_node := $service.Nodes}}
-          {{if eq (Base $service_node.Key) "scheme" }}
-        mode {{ $service_node.Value }}
-          {{ end }}
-
-          {{ if eq (Base $service_node.Key) "hosts" }}
-            {{ range $host_node := $service_node.Nodes }}
-        server server{{ Base $host_node.Key }} {{ $host_node.Value }}
-            {{ end}}
-          {{ end }}
-        {{ end }}
-
-      {{ end }}
