@@ -18,7 +18,7 @@ start-vagrant: cloud-config.yaml
 	vagrant up
 
 update-discovery-token:
-	sed -i.bak -r 's|discovery:(.*$$)|discovery: '`curl -s https://discovery.etcd.io/new`'|' cloud-config.yaml
+	sed -i.bak -r 's|discovery:(.*$$)|discovery: '$(COREOS_TOKEN)'|' cloud-config.yaml
 
 update-gcloud-project:
 	sed -i.bak -r 's|GCLOUD_PROJECT=(.*$$)|GCLOUD_PROJECT='"$(GCLOUD_PROJECT)"'|' cloud-config.yaml
