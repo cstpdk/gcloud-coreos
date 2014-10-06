@@ -18,7 +18,7 @@ if [ -z "`docker images | grep $fleet_image`" ] ; then
 	exit 1
 fi
 
-docker run -it --volumes-from $config_container \
+docker run --volumes-from $config_container \
 	-e FLEETCTL_TUNNEL=`cat $dir/.entry-node` \
 	-e FLEET_VERIFY_UNITS=true \
 	-e FLEETCTL="/root/fleet/bin/fleetctl" \
