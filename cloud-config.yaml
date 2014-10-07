@@ -3,7 +3,7 @@
 coreos:
   etcd:
       #generate a new token for each unique cluster from https://discovery.etcd.io/new
-      discovery: https://discovery.etcd.io/c2765df3c6748768b0585b91d80a9291
+      discovery: https://discovery.etcd.io/024804180afd9c9e1b5da774c7592526
       addr: $private_ipv4:4001
       peer-addr: $private_ipv4:7001
   units:
@@ -80,3 +80,64 @@ write_files:
     content: |
       nameserver 172.17.42.1
       nameserver 8.8.8.8
+  - path: /home/core/remove-from-cluster
+    permissions: '0744'
+    owner: core:core
+    content: |
+      curl -L http://127.0.0.1:7001/v2/admin/machines/`cat /etc/machine-id` -XDELETE
+  - path: /home/core/update
+    permissions: '0744'
+    owner: core:core
+    content: |
+      #!/bin/bash
+
+      service="$1"
+      re="^""$service@"
+
+      current_max=0
+
+      for i in $(fleetctl list-units | grep -Eo "$re""[[:digit:]]+.service" | grep -Eo [[:digit:]]+) ; do
+              if [ $i -gt $current_max ] ; then
+                      current_max=$i
+              fi
+      done
+
+      echo "Current max: $current_max"
+
+      n=$(fleetctl list-units | grep -E "$re" | wc -l)
+      echo "Found $n currently running"
+      let "m=2*n"
+      if [ $m -eq 0 ] ; then
+              m=1
+      fi
+
+      echo "Aiming for $m"
+
+      for ((i=n;i<m;i++)) ; do
+              let "number=i+current_max"
+              echo "Starting $service@$number"
+              fleetctl start "$service@$number"
+      done
+
+      until [ $(fleetctl list-units | grep -E "$re" | grep "running" | wc -l) -eq $m ] ; do
+              sleep 1
+              echo "Waiting"
+              # Maybe timeout for fallback?
+      done
+
+      for ((i=n;i<m;i++)) ; do
+              let "number=i+current_max"
+              fleetctl start "$service""_presence@$number"
+      done
+
+      for ((i=current_max;i>0;i--)) ; do
+              let "number=i"
+              echo "Destroying $number"
+              fleetctl stop "$service@$number"
+              fleetctl stop "$service""_presence@$number"
+
+              fleetctl destroy "$service""_presence@$number"
+              fleetctl destroy "$service@$number"
+      done
+
+      echo "Updated"
