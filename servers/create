@@ -22,6 +22,7 @@ create_core(){
 	"$dir"/gcloud compute instances create $@ \
 		--image=$coreos_image \
 		--zone=$GCLOUD_ZONE --machine-type=g1-small \
+		--boot-disk-size 50GB \
 		--metadata-from-file user-data="/cloud-config.yaml" \
 		--scopes compute-rw storage-ro
 }
@@ -43,6 +44,15 @@ create_registry(){
 }
 
 create_db(){
+	if [ $# -lt 4 ] ; then
+		echo "Usage: $0 db servername dbname user password"
+		exit 1
+	fi
+
+	sed -i "s/POSTGRESQL_DB=\w*/POSTGRESQL_DB=$2/g" $dir/scripts/start_pg.sh
+	sed -i "s/POSTGRESQL_USER=\w*/POSTGRESQL_USER=$3/g" $dir/scripts/start_pg.sh
+	sed -i "s/POSTGRESQL_PASS=\w*/POSTGRESQL_PASS=$4/g" $dir/scripts/start_pg.sh
+
 	# Create a disk
 	$dir/gcloud compute disks create --zone $GCLOUD_ZONE --size 20 "$1"dbdisk
 
@@ -51,7 +61,6 @@ create_db(){
 		--image $container_image \
 		--zone=$GCLOUD_ZONE --machine-type=f1-micro \
 		--disk name="$1"dbdisk \
-		--no-address \
 		--metadata-from-file startup-script="scripts/start_pg.sh"
 }
 
