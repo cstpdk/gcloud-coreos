@@ -18,14 +18,18 @@ if [ -z "`docker images | grep $fleet_image`" ] ; then
 	exit 1
 fi
 
-docker run -it --volumes-from $config_container \
+if [[ "$1" == "ssh" || "$1" == "journal" ]] ; then
+	PREPEND="$PREPEND -it"
+fi
+
+docker run --volumes-from $config_container \
 	-e FLEETCTL_TUNNEL=`cat $dir/.entry-node` \
 	-e FLEET_VERIFY_UNITS=true \
 	-e FLEETCTL="/root/fleet/bin/fleetctl" \
 	-e ENTRY_NODE=`cat $dir/.entry-node` \
-	-w / \
-	--entrypoint /ssh_and_do \
-	-v $(pwd)/services:/services \
+	-w / --entrypoint /ssh_and_do \
+	-v $dir/../services:/services \
 	-v $dir/scripts/ssh_and_do:/ssh_and_do \
+	$PREPEND \
 	$fleet_image $@
 
