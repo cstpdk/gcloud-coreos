@@ -4,4 +4,4 @@ dir=$(cd $(dirname "$0") && pwd)
 
 source $dir/variables.sh
 
-$dir/gcloud compute ssh --zone=$GCLOUD_ZONE "$1"
+$dir/gcloud compute ssh --zone=$GCLOUD_ZONE $@
