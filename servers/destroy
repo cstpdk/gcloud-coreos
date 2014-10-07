@@ -3,4 +3,9 @@
 dir=$(cd $(dirname "$0") && cd .. && pwd)
 source $dir/variables.sh
 
+for server in "$@" ; do
+	if [[ $server == core* ]] ; then
+		$dir/ssh core@$server --command ./remove-from-cluster
+	fi
+done
 $dir/gcloud compute instances delete --zone $GCLOUD_ZONE "$@"
