@@ -85,7 +85,7 @@ add_loadbalancer(){
 	$GCLOUD_EXE compute http-health-checks create basic-check
 	$GCLOUD_EXE compute target-pools create --health-check basic-check --region $GCLOUD_REGION lb
 	$GCLOUD_EXE compute target-pools add-instances production \
-		--instance $instance --zone $GCLOUD_ZONE --region $GCLOUD_REGION
+		--instance $instance --zone $GCLOUD_ZONE
 }
 
 auth_usage(){
