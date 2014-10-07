@@ -11,6 +11,8 @@ fi
 
 if [[ "$@" == "bash" ]] ; then
 	TO_RUN="bash"
+elif [[ "$1" == "helper" ]] ; then
+	TO_RUN="/scripts/gcloud-$@"
 else
 	TO_RUN="gcloud $@"
 fi
