@@ -1,5 +1,7 @@
 #!/bin/sh
 
+core_machine_type="n1-standard-1"
+
 usage(){
 	cat << EOF
 Create machines on google compute engine
@@ -21,7 +23,7 @@ container_image=https://www.googleapis.com/compute/v1/projects/google-containers
 create_core(){
 	"$dir"/gcloud compute instances create $@ \
 		--image=$coreos_image \
-		--zone=$GCLOUD_ZONE --machine-type=g1-small \
+		--zone=$GCLOUD_ZONE --machine-type=$core_machine_type \
 		--boot-disk-size 50GB \
 		--metadata-from-file user-data="/cloud-config.yaml" \
 		--scopes compute-rw storage-ro
