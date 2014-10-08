@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# restart units with status ( or anything really)
+# matching arg1 or, per default, status inactive and failed
+
+dir=$(cd $(dirname "$0") && pwd)
+
+regex=${1:-"inactive|failed"}
+for u in $($dir/fleetctl list-units | grep -E "$regex"  | awk '{print $1}') ; do
+	echo $u
+	#c/fleetctl destroy $u
+	#c/fleetctl start $u
+done
