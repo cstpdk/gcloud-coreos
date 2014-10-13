@@ -28,3 +28,6 @@ cloud-config.yaml: update-discovery-token update-gcloud-project
 
 .entry-node:
 	./servers/list | grep -E "core[0-9]+" | awk '{print $$5}' | head -1 > $@
+
+README.pdf: README.md
+	pandoc -o README.pdf README.md
