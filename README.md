@@ -7,7 +7,9 @@ running on Google compute engine. See "Intented workflow".
 
 The general idea of the system is that multiple clusters can exist,
 but there is only one compute engine project. For most intends and
-purposes only one cluster will probably be needed, but the
+purposes only one cluster will probably be needed, but the possibility
+of more than one cluster makes for quite flexible load balancing
+and failover scenarios.
 
 ## Tools
 
@@ -15,7 +17,6 @@ For convenience a set of bash scripts exists to provide a small
 wrapper around standard tools. Convenience in this regard is mostly
 on account of authentication and not having to install these client
 libraries. 
-
 
 ## Core concepts
 
@@ -149,18 +150,51 @@ such as coreos nodes and database servers.
 
 ### Services
 
-Services are provisioned through CoreOS' fleet. See "intended workflow" for
-how to write service files.
+Services are provisioned through CoreOS' fleet. See "Suggested
+workflow" for how to write service files.
 
-## Intented workflow
+## Suggested workflow
 
 ### Service definitions
 
-Providing a service
+Providing a service consists of first making it run, announcing it,
+and, preferably, monitoring it. It is suggested to follow the
+guidelines setup by CoreOS for the "Sidekick pattern". This consists
+of having two serices running, one for the actual service, and one
+continously announcing the service. This is best done with
+a combination of etcd ttl value and a eternal while loop with a sleep
+value that is shorter than the ttl. See section "update process" for
+naming conventions.
+
+Services, of which more than one instance can exist should use the
+systemd instance unit format. That is, service definitions include
+a @ , where everything before the symbol denotes the service name
+(available as %d within the template) and everything after denotes an
+instance value (available as %i within the template). The instance
+value is assumed to be a sequential integer, and is used for
+uniqueness between service instances.
 
 ### Update process
 
-Updating services takes on 
+Updating services is one of the still fragile parts of this system. It
+is currently done with approximately 50 lines of bash, defined in
+cloud-config.yaml. This is the simple way to complete this task, and
+it should be easy to make a more robust solution. The general idea is
+that, as with service discovery, each node can handle the update
+process. It all takes place in fleet, so access to the cluster and
+a fleetctl is the only prerequisite.
+
+1. The script takes one argument, a service name, lets call it sname
+2. Looks up how many instances are currently running, lets call it n
+3. Looks up what the highest instance variable is now, lets call it
+max
+4. Starts n instances of the service with instance values n through
+max
+5. Waits for them to have status "running"
+6. Attempts to start n units of "sname_presence", which is assumed to be
+sidekick units, and with instance value n through max.
+7. Kills n units of "sname_presence" with instance values 1 to n
+8. Kills n units of "sname" with instance values 1 to n
 
 ### Persistent services
 
@@ -210,3 +244,5 @@ should be kept on a servers outside of CoreOS clusters.
 described above.
 
 - Update process is a kinda-fragile bash script
+
+- Unified logging is still not handled.
