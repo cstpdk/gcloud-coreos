@@ -1,3 +1,0 @@
-export GCLOUD_PROJECT=
-export GCLOUD_ZONE=
-export COREOS_TOKEN=
