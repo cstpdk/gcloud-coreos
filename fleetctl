@@ -30,6 +30,7 @@ docker run --volumes-from $config_container \
 	-w / --entrypoint /ssh_and_do \
 	-v $dir/../services:/services \
 	-v $dir/scripts/ssh_and_do:/ssh_and_do \
+	-e HOME="/" \
 	$PREPEND \
 	$fleet_image $@
 
