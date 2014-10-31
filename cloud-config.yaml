@@ -40,10 +40,12 @@ coreos:
         EnvironmentFile=/etc/environment
         ExecStartPre=/usr/bin/docker pull cstpdk/haproxy-confd
         ExecStart=/usr/bin/docker run \
-          -p 80:80 -p 81:81 \
+          -p 80:80 -p 81:81 -p 443:443 \
+          -p 5431:5431 \
           -p 5432:5432 -p 6379:6379 \
           -p 5433:5433 -p 6380:6380 \
           -p 5434:5434 -p 6381:6381 \
+          -v /home/core/keys:/keys \
           --name discoverer \
           cstpdk/haproxy-confd -node=${COREOS_PRIVATE_IPV4}:4001 -interval=30
         ExecStop=/usr/bin/docker stop -t 2 discoverer
