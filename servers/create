@@ -1,6 +1,6 @@
 #!/bin/sh
 
-core_machine_type="n1-standard-1"
+core_machine_type=${GCLOUD_MACHINE_TYPE:-"n1-standard-1"}
 
 usage(){
 	cat << EOF
