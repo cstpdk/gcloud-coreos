@@ -5,7 +5,7 @@ mkdir -p /mnt/pd0
 mkdir /mnt/pd0/docker
 sed -i.bak -r 's|^DOCKER_OPTS=.*|DOCKER_OPTS="-g /mnt/pd0/docker"|g' /etc/default/docker
 
-docker run -e GCS_BUCKET=quniz-registry -d --name registry \
+docker run -e GCS_BUCKET= -d --name registry \
 	-p 5000:5000 google/docker-registry
 
 docker run -p 80:8080 -v /root/jenkins:/root/.jenkins \
