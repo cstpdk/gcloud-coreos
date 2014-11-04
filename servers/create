@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 usage(){
 	cat << EOF
@@ -39,9 +39,8 @@ create_container(){
 create_registry(){
 	$dir/gcloud compute instances create registry \
 		--image $container_image \
-		--zone=$GCLOUD_ZONE --machine-type=f1-micro \
-		--metadata-from-file google-container-manifest=/manifests/registry.yaml \
-		--scopes storage-rw
+		--zone=$GCLOUD_ZONE --machine-type=g1-small \
+		--scopes storage-rw \
 		--metadata-from-file startup-script="/scripts/start_registry.sh"
 }
 
