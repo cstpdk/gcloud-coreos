@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-eval `ssh-agent` &>/dev/null
-ssh-add $HOME/.ssh/google_compute_engine &>/dev/null
-
+eval `ssh-agent`
+ssh-add /root/.ssh/google_compute_engine
 
 $FLEETCTL --strict-host-key-checking=false --tunnel=$ENTRY_NODE $@

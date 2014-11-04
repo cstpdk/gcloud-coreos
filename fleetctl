@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 dir=$(cd $(dirname "$0") && pwd)
 source "$dir/variables.sh"
