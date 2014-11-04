@@ -27,6 +27,7 @@ if [[ ! `docker ps -a | grep $config_container` ]] ; then
 		-e GCLOUD_PROJECT=$GCLOUD_PROJECT \
 		-e GCLOUD_ZONE=$GCLOUD_ZONE \
 		-v /.ssh -v /.config \
+		-v /root/.ssh -v /root/.config \
 		-v $dir/scripts:/scripts -v $(pwd):/files \
 		google/cloud-sdk /scripts/gcloud-helper auth
 
