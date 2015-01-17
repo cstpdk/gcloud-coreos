@@ -3,7 +3,7 @@
 coreos:
   etcd:
       #generate a new token for each unique cluster from https://discovery.etcd.io/new
-      discovery: https://discovery.etcd.io/024804180afd9c9e1b5da774c7592526
+      discovery: https://discovery.etcd.io/da6d8f4ec58299ee87c75d093b745b83
       addr: $private_ipv4:4001
       peer-addr: $private_ipv4:7001
   units:
@@ -77,6 +77,7 @@ coreos:
         ExecStop=/usr/bin/docker rm -v -f dnsmasq
         Restart=always
 write_files:
+  - path: /etc/systemd/system/docker.service.d/50-insecure-registry.conf
     content: |
       [Service]
       Environment=DOCKER_OPTS='--insecure-registry="registry.local"'
