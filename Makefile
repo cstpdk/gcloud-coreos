@@ -7,7 +7,7 @@ dir := $(shell dirname $(makefile))
 
 include $(dir)/variables.sh
 
-default: images
+default: images cloud-config.yaml
 
 images:
 	docker build -t $(GCLOUD_PROJECT)-fleet $(dir)/images/fleet
@@ -25,9 +25,6 @@ update-gcloud-project:
 
 cloud-config.yaml: update-discovery-token update-gcloud-project
 	rm cloud-config.yaml.bak # Yeah. Your backup doesn't interest me beyond mac compatibility
-
-scripts/run_jenkins.sh:
-	sed -i.bak -r 's|GCS_BUCKET=(.*$$)|GCS_BUCKET='"$(GCS_BUCKET)"'|' $@
 
 .entry-node:
 	./servers/list | grep -E "core[0-9]+" | awk '{print $$5}' | head -1 > $@
