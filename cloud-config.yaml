@@ -77,6 +77,12 @@ coreos:
         ExecStop=/usr/bin/docker rm -v -f dnsmasq
         Restart=always
 write_files:
+    content: |
+      [Service]
+      Environment=DOCKER_OPTS='--insecure-registry="registry.local"'
+  - path: /etc/fleet/fleet.conf
+    content: |
+      metadata="tier=green"
   - path: /etc/resolv.conf
     permissions: '0644'
     content: |
