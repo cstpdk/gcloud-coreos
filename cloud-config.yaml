@@ -3,7 +3,7 @@
 coreos:
   etcd:
       #generate a new token for each unique cluster from https://discovery.etcd.io/new
-      discovery: https://discovery.etcd.io/da6d8f4ec58299ee87c75d093b745b83
+      discovery: https://discovery.etcd.io/3c5e42fccb3f3a1deb98b3acae993173
       addr: $private_ipv4:4001
       peer-addr: $private_ipv4:7001
   units:
@@ -23,7 +23,7 @@ coreos:
         ExecStartPre=/bin/mount --make-rprivate /
         LimitNOFILE=1048576
         LimitNPROC=1048576
-        ExecStart=/usr/bin/docker -d --bip=172.17.42.1/16 -s=btrfs -r=false -H fd:// --dns 172.17.42.1 --dns 8.8.8.8
+        ExecStart=/usr/bin/docker -d --bip=172.17.42.1/16 -s=btrfs -r=false -H fd:// --dns 172.17.42.1 --dns 8.8.8.8 --insecure-registry 0.0.0.0
         Restart=always
 
         [Install]
